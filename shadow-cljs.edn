@@ -1,8 +1,8 @@
 ;; shadow-cljs configuration
-{:source-paths
- ["src/dev"
-  "src/main"
-  "src/test"]
+{:source-paths ["src/dev" "src/main" "src/test"]
+
+ ;; Build in deps.edn pulling in shadow-cljs
+ :deps {:aliases [:cljs]}
 
  :dev-http {8080 "public"}
 

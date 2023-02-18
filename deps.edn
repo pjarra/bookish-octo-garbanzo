@@ -1,0 +1,16 @@
+{:paths ["src/main" "src/dev" "src/test" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}
+        integrant/integrant {:mvn/version "0.8.0"}
+        http-kit/http-kit {:mvn/version "2.6.0"}
+        metosin/reitit {:mvn/version "0.5.18"}
+        jarohen/chord {:mvn/version "0.8.1"}}
+
+ :aliases
+ {:dev
+  {:extra-deps {integrant/repl {:mvn/version "0.3.2"}
+                thheller/shadow-cljs {:mvn/version "2.20.20"}}
+   :exec-fn dev/start-with-shadow
+   :exec-args {:build :frontend}}
+  :cljs
+  {:extra-deps {thheller/shadow-cljs {:mvn/version "2.20.20"}}}}}
