@@ -4,7 +4,8 @@
  ;; Build in deps.edn pulling in shadow-cljs
  :deps {:aliases [:cljs]}
 
- :dev-http {8080 "public"}
+ ;; When using the dev-server from shadow-cljs, use the same server root as http-kit
+ ;; :dev-http {8080 "resources/public"}
 
  :dependencies
  [[org.clojure/core.async "1.6.673"]]
@@ -12,4 +13,7 @@
  :builds
  {:frontend
   {:target :browser
+   ;; See sec 7.1 of shadow-cljs user guide
+   :output-dir "resources/public/assets/frontend/js"
+   :asset-path "assets/frontend/js"
    :modules {:main {:init-fn charts.frontend.app/init}}}}}

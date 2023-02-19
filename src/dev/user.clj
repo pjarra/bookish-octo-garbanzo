@@ -4,6 +4,7 @@
   (:require [integrant.repl :as igr]
             [shadow.cljs.devtools.server :as shadow-server]
             [shadow.cljs.devtools.api :as shadow]
+            [org.httpkit.server :as server]
             [charts.backend.system :as system]))
 
 (defn shadow-watch
@@ -13,7 +14,12 @@
 (defn shadow-start-and-watch
   [build-id]
   (shadow-server/start!)
-  (shadow-watch))
+  (shadow-watch build-id))
+
+(defn http-server-status
+  []
+  (when-let [http-server (:app/adapter integrant.repl.state/system)]
+    (server/server-status http-server)))
 
 (defn start
   []
@@ -27,5 +33,7 @@
 (comment
   (start)
   (stop)
+  (http-server-status)
+  (shadow-start-and-watch :frontend)
   integrant.repl.state/system
   )
