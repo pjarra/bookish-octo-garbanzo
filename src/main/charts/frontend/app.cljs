@@ -1,44 +1,25 @@
 (ns charts.frontend.app
-  (:require [cljs.core.async :as async :refer [chan go]]
+  (:require [cljs.core.async :as async]
             ["vega" :as vega]
             ["vega-lite" :as vega-lite]
             ["vega-embed" :as vega-embed]
             [charts.frontend.websocket :as ws]))
 
-(def streaming-switch (atom false))
-(def streaming-status (chan))
-
-(defn stop-streaming
-  []
-  (when @streaming-switch
-    (reset! streaming-switch false)
-    (go
-      (if (= :inactive (async/<! streaming-status))
-        (js/console.log "Stream stopped")))))
+(def chan (async/chan))
 
 (defn gen-value
   []
   #js {:a (char (+ 65 (rand-int 26)))
        :b (rand-int 100)})
 
-;; https://vega.github.io/vega-lite/tutorials/streaming.html
-(defn stream
-  [view]
-  (println "Starting stream for" view)
-  (letfn [(insert []
-            (let [cs (.insert (vega/changeset) (gen-value))]
-              (-> view
-                  (.change "thedata" cs)
-                  (.run))))
-          (streamer []
-            (if-not @streaming-switch
-              (async/put! streaming-status :inactive)
-              (do
-                (insert)
-                (js/setTimeout streamer 1000))))]
-    (reset! streaming-switch true)
-    (streamer)))
+(defn update-chart
+  [view id value]
+  (let [n (js/parseInt (get value "a"))
+        data (clj->js (assoc value "a" (char n)))
+        cs (.insert (vega/changeset) data)]
+    (-> view (.change id cs) (.run))))
 
+;; https://vega.github.io/vega-lite/tutorials/streaming.html
 (def v1-spec
   #js
   {:$schema "https://vega.github.io/schema/vega-lite/v5.json",
@@ -67,18 +48,36 @@
                                             :compiled false
                                             :editor false}}))
       (.then #(let [view (:view (js->clj % :keywordize-keys true))]
-                (println view)
                 (then view)))
       (.catch (or error (fn [err]
                           (js/console.error err))))))
 
+(defn websocket-handler
+  [channels]
+  (fn [msg]
+    (println "Received" msg)
+    (if-let [t (get msg "type")]
+      (if-let [c (get channels t)]
+        (async/put! c (get msg t))
+        (.log js/console "No handler for" t))
+      (.log js/console "No specifier in websocket message"))))
+
+(defn connect-websocket-to-view
+  [view]
+  (let [handler (websocket-handler {"value" chan})]
+    (ws/make-websocket! "ws://localhost:3000/ws" handler)
+    (async/go-loop []
+      (when-let [v (async/<! chan)]
+        (update-chart view "thedata" v)
+        (recur)))))
+
 (defn ^:dev/after-load after-load
   []
-  (embed-vega {:then #(js/setTimeout stream 1000 %)}))
+  (embed-vega {:then connect-websocket-to-view}))
 
 (defn ^:dev/before-load before-load
   []
-  (stop-streaming)
+  (ws/close-websocket!)
   (js/console.log "stop"))
 
 (defn init

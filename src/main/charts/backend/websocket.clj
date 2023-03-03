@@ -1,6 +1,8 @@
 (ns charts.backend.websocket
   (:require [org.httpkit.server :as kit]
             [cognitect.transit :as t]
+            [clojure.core.async :as async]
+            [clojure.data.json :as j]
             #_[clojure.tools.logging :as log]))
 
 (defonce channels (atom #{}))
@@ -17,7 +19,6 @@
 
 (defn notify-clients
   [msg]
-  (println "Received" msg)
   (doseq [c @channels]
     (kit/send! c msg)))
 
@@ -32,3 +33,15 @@
     (kit/as-channel request handler-map)))
 
 (def routes ["/ws" handler])
+
+(defn send-random
+  ([]
+   (notify-clients (j/write-str {:type :value
+                                 :value {:a (str (+ 65 (rand-int 26)))
+                                         :b (rand-int 100)}})))
+  ([amount delay]
+   (async/go-loop [n amount]
+     (send-random)
+     (when-not (zero? n)
+       (Thread/sleep delay)
+       (recur (- n 1))))))

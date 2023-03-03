@@ -9,7 +9,7 @@
 
  :dependencies
  [[org.clojure/core.async "1.6.673"]
-  [com.cognitect/transit-clj "1.0.329"]]
+  [com.cognitect/transit-cljs "0.8.280"]]
 
  :builds
  {:frontend
