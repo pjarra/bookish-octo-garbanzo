@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [integrant.core :as ig]
             [org.httpkit.server :as server]
-            [reitit.ring :as ring]))
+            [reitit.ring :as ring]
+            [charts.backend.websocket :as ws]))
 
 (def system
   {:app/config {}
@@ -18,7 +19,8 @@
   [_ _]
   (ring/ring-handler
    (ring/router
-    [["/ping" (constantly {:status 200 :body "pong"})]])
+    [["/ping" (constantly {:status 200 :body "pong"})]
+     ws/routes])
    (ring/routes
     (ring/create-resource-handler {:path "/"})
     (ring/create-default-handler))))

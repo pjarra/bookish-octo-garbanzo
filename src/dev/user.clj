@@ -19,7 +19,10 @@
 (defn http-server-status
   []
   (when-let [http-server (:app/adapter integrant.repl.state/system)]
-    (server/server-status http-server)))
+    (let [status (server/server-status http-server)]
+      (if (= :running status)
+        (.getPort http-server)
+        status))))
 
 (defn start
   []

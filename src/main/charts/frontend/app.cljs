@@ -2,7 +2,8 @@
   (:require [cljs.core.async :as async :refer [chan go]]
             ["vega" :as vega]
             ["vega-lite" :as vega-lite]
-            ["vega-embed" :as vega-embed]))
+            ["vega-embed" :as vega-embed]
+            [charts.frontend.websocket :as ws]))
 
 (def streaming-switch (atom false))
 (def streaming-status (chan))
