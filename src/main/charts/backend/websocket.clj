@@ -3,7 +3,9 @@
             [cognitect.transit :as t]
             [clojure.core.async :as async]
             [clojure.data.json :as j]
-            #_[clojure.tools.logging :as log]))
+            #_[clojure.tools.logging :as log])
+  (:import [java.time LocalDate]
+           [java.time.format DateTimeFormatter]))
 
 (defonce channels (atom #{}))
 
@@ -34,14 +36,32 @@
 
 (def routes ["/ws" handler])
 
+(let [dm (atom "03-Jun-2009")]
+  (defn next-date
+    []
+    (let [formatter (DateTimeFormatter/ofPattern "dd-MMM-yyyy")
+          next (-> @dm
+                   (LocalDate/parse formatter)
+                   (.plusDays 1))]
+      (reset! dm (.format formatter next)))))
+
+(comment
+  (next-date))
+
 (defn send-random
   ([]
-   (notify-clients (j/write-str {:type :value
-                                 :value {:a (str (+ 65 (rand-int 26)))
-                                         :b (rand-int 100)}})))
+   (let [d (next-date)
+         low (rand-int 30)
+         high (+ low (rand-int 20))
+         open (+ low (rand-int (- high low)))
+         close (+ low (rand-int (- high low)))]
+     (notify-clients (j/write-str {:type :value
+                                   :value [d open high low close]}))))
   ([amount delay]
    (async/go-loop [n amount]
      (send-random)
      (when-not (zero? n)
        (Thread/sleep delay)
        (recur (- n 1))))))
+
+(send-random 10 1000)

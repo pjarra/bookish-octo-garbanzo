@@ -7,46 +7,52 @@
 
 (def chan (async/chan))
 
-(defn gen-value
-  []
-  #js {:a (char (+ 65 (rand-int 26)))
-       :b (rand-int 100)})
-
 (defn update-chart
-  [view id value]
-  (let [n (js/parseInt (get value "a"))
-        data (clj->js (assoc value "a" (char n)))
+  [view id [date open high low close]]
+  (let [data (clj->js {:date date
+                       :open (js/parseFloat open)
+                       :high (js/parseFloat high)
+                       :low (js/parseFloat low)
+                       :close (js/parseFloat close)})
         cs (.insert (vega/changeset) data)]
     (-> view (.change id cs) (.run))))
 
 ;; https://vega.github.io/vega-lite/tutorials/streaming.html
-(def v1-spec
-  #js
+(def spec
   {:$schema "https://vega.github.io/schema/vega-lite/v5.json",
-   :description "A simple bar chart with embedded data.",
-   :data
-   #js
-   {:name "thedata"
-    :values
-    #js
-    [#js {:a "A", :b 28} #js {:a "B", :b 55} #js {:a "C", :b 43}
-     #js {:a "D", :b 91} #js {:a "E", :b 81} #js {:a "F", :b 53}
-     #js {:a "G", :b 19} #js {:a "H", :b 87} #js {:a "I", :b 52}]},
-   :mark #js {:type "line" :tooltip true},
-   :encoding
-   #js
-   {:x #js {:field "a", :type "ordinal"},
-    :y #js {:field "b", :type "quantitative"}}})
+   :description "Candlestick chart from the vega-lite example",
+   :encoding {:x {:field "date"
+                  :type "temporal"
+                  :title "Datum"
+                  :axis {:format "%m/%d"
+                         :labelAngle -45
+                         :title "Datum"}}
+              :y {:type "quantitative"
+                  :scale {:zero false}
+                  :axis {:title "Price"}}
+              :color {:condition {:test "datum.open < datum.close",
+                                  :value "#06982d"}
+                      :value "#ae1325"}}
+   :layer [{:mark "rule"
+            :encoding {:y {:field "low"}
+                       :y2 {:field "high"}}}
+           {:mark "bar"
+            :encoding {:y {:field "open"}
+                       :y2 {:field "close"}}}]
+   :data {:name "thedata"
+          :values [{:date "01-Jun-2009" :open 28.7 :high 30.05 :low 28.45 :close 30.04}
+                   {:date "02-Jun-2009" :open 30.04 :high 30.13 :low 28.3 :close 29.63}
+                   {:date "03-Jun-2009" :open 29.62 :high 31.79 :low 29.62 :close 31.02}]}})
 
 ;; To make a react component, see
 ;; https://github.com/metasoarous/oz/blob/master/src/cljs/oz/core.cljs
 (defn embed-vega
   [{:keys [then error]}]
-  (-> (vega-embed "#app" v1-spec (clj->js {:actions
-                                           {:export true
-                                            :source false
-                                            :compiled false
-                                            :editor false}}))
+  (-> (vega-embed "#app" (clj->js spec) (clj->js {:actions
+                                                  {:export true
+                                                   :source false
+                                                   :compiled false
+                                                   :editor false}}))
       (.then #(let [view (:view (js->clj % :keywordize-keys true))]
                 (then view)))
       (.catch (or error (fn [err]
