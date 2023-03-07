@@ -22,7 +22,7 @@
 (defn notify-clients
   [msg]
   (doseq [c @channels]
-    (kit/send! c msg)))
+    (kit/send! c (j/write-str msg))))
 
 (def handler-map {:on-open connect!
                   :on-close disconnect!
@@ -48,15 +48,24 @@
 (comment
   (next-date))
 
+(defn random-ohlcv
+  []
+  (let [d (next-date)
+        low (rand-int 30)
+        high (+ low (rand-int 20))
+        open (+ low (rand-int (- high low)))
+        close (+ low (rand-int (- high low)))]
+    [d open high low close]))
+
 (defn send-random
   ([]
-   (let [d (next-date)
-         low (rand-int 30)
-         high (+ low (rand-int 20))
-         open (+ low (rand-int (- high low)))
-         close (+ low (rand-int (- high low)))]
-     (notify-clients (j/write-str {:type :value
-                                   :value [d open high low close]}))))
+   (let [value (random-ohlcv)]
+     (notify-clients {:type :value
+                      :value value})))
+  ([amount]
+   (let [values (mapv (fn [_] (random-ohlcv)) (range amount))]
+     (notify-clients {:type :list
+                      :list values})))
   ([amount delay]
    (async/go-loop [n amount]
      (send-random)
@@ -64,4 +73,6 @@
        (Thread/sleep delay)
        (recur (- n 1))))))
 
+(send-random)
 (send-random 10 1000)
+(send-random 10)

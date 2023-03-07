@@ -7,15 +7,37 @@
 
 (def chan (async/chan))
 
-(defn update-chart
-  [view id [date open high low close]]
-  (let [data (clj->js {:date date
-                       :open (js/parseFloat open)
-                       :high (js/parseFloat high)
-                       :low (js/parseFloat low)
-                       :close (js/parseFloat close)})
-        cs (.insert (vega/changeset) data)]
-    (-> view (.change id cs) (.run))))
+(defmulti chart-update identity)
+
+(defn value->changeset
+  [v]
+  (.insert (vega/changeset) v))
+
+(defn update-chart-with-changeset
+  [view id changeset]
+  (-> view (.change id changeset) (.run)))
+
+(defn value->js
+  [[date open high low close]]
+  (clj->js {:date date
+            :open (js/parseFloat open)
+            :high (js/parseFloat high)
+            :low (js/parseFloat low)
+            :close (js/parseFloat close)}))
+
+(defmethod chart-update :value
+  [_ view id value]
+  (let [cs (value->changeset (value->js value))]
+    (update-chart-with-changeset view id cs)))
+
+(defmethod chart-update :list
+  [_ view id values]
+  (let [arr (clj->js (mapv value->js values))]
+    (->> values
+         (mapv value->js)
+         (clj->js)
+         (value->changeset)
+         (update-chart-with-changeset view id))))
 
 ;; https://vega.github.io/vega-lite/tutorials/streaming.html
 (def spec
@@ -47,35 +69,36 @@
 ;; To make a react component, see
 ;; https://github.com/metasoarous/oz/blob/master/src/cljs/oz/core.cljs
 (defn embed-vega
-  [{:keys [then error]}]
-  (-> (vega-embed "#app" (clj->js spec) (clj->js {:actions
-                                                  {:export true
-                                                   :source false
-                                                   :compiled false
-                                                   :editor false}}))
-      (.then #(let [view (:view (js->clj % :keywordize-keys true))]
-                (then view)))
-      (.catch (or error (fn [err]
-                          (js/console.error err))))))
+[{:keys [then error]}]
+(-> (vega-embed "#app" (clj->js spec) (clj->js {:actions
+                                                {:export true
+                                                 :source false
+                                                 :compiled false
+                                                 :editor false}}))
+    (.then #(let [view (:view (js->clj % :keywordize-keys true))]
+              (then view)))
+    (.catch (or error (fn [err]
+                        (js/console.error err))))))
 
 (defn websocket-handler
-  [channels]
-  (fn [msg]
-    (println "Received" msg)
-    (if-let [t (get msg "type")]
-      (if-let [c (get channels t)]
-        (async/put! c (get msg t))
-        (.log js/console "No handler for" t))
-      (.log js/console "No specifier in websocket message"))))
+[channels]
+(println "Starting ws-handler with" channels)
+(fn [msg]
+  (if-let [t (get msg "type")]
+    (if-let [c (get channels t)]
+      (async/put! c [(keyword t) (get msg t)])
+      (.log js/console "No handler for" t))
+    (.log js/console "No specifier in websocket message"))))
 
 (defn connect-websocket-to-view
-  [view]
-  (let [handler (websocket-handler {"value" chan})]
-    (ws/make-websocket! "ws://localhost:3000/ws" handler)
-    (async/go-loop []
-      (when-let [v (async/<! chan)]
-        (update-chart view "thedata" v)
-        (recur)))))
+[view]
+(println "Connecting ws to view!")
+(let [handler (websocket-handler {"value" chan "list" chan})]
+  (ws/make-websocket! "ws://localhost:3000/ws" handler)
+  (async/go-loop []
+    (when-let [[t v] (async/<! chan)]
+      (chart-update t view "thedata" v)
+      (recur)))))
 
 (defn ^:dev/after-load after-load
   []
