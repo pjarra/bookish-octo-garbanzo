@@ -1,5 +1,5 @@
 (ns dev
-  (:require [integrant.repl :as ig-repl]
+  (:require [clojure.main :as clj]
             [shadow.cljs.devtools.server :as shadow-server]
             [shadow.cljs.devtools.api :as shadow]))
 
@@ -7,4 +7,4 @@
   [{:keys [build]}]
   (shadow-server/start!)
   (shadow/watch build)
-  (clojure.main/repl))
+  (clj/repl))

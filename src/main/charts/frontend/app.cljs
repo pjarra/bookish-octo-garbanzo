@@ -43,6 +43,8 @@
 (def spec
   {:$schema "https://vega.github.io/schema/vega-lite/v5.json",
    :description "Candlestick chart from the vega-lite example",
+   :width "500"
+   :height "400"
    :encoding {:x {:field "date"
                   :type "temporal"
                   :title "Datum"
@@ -59,12 +61,9 @@
             :encoding {:y {:field "low"}
                        :y2 {:field "high"}}}
            {:mark "bar"
-            :encoding {:y {:field "open"}
-                       :y2 {:field "close"}}}]
-   :data {:name "thedata"
-          :values [{:date "01-Jun-2009" :open 28.7 :high 30.05 :low 28.45 :close 30.04}
-                   {:date "02-Jun-2009" :open 30.04 :high 30.13 :low 28.3 :close 29.63}
-                   {:date "03-Jun-2009" :open 29.62 :high 31.79 :low 29.62 :close 31.02}]}})
+            :stroke "black"
+            :encoding {:y {:field "open"} :y2 {:field "close"}}}]
+   :data {:name "thedata"}})
 
 ;; To make a react component, see
 ;; https://github.com/metasoarous/oz/blob/master/src/cljs/oz/core.cljs
@@ -81,24 +80,22 @@
                         (js/console.error err))))))
 
 (defn websocket-handler
-[channels]
-(println "Starting ws-handler with" channels)
-(fn [msg]
-  (if-let [t (get msg "type")]
-    (if-let [c (get channels t)]
-      (async/put! c [(keyword t) (get msg t)])
-      (.log js/console "No handler for" t))
-    (.log js/console "No specifier in websocket message"))))
+  [channels]
+  (fn [msg]
+    (if-let [t (get msg "type")]
+      (if-let [c (get channels t)]
+        (async/put! c [(keyword t) (get msg t)])
+        (.log js/console "No handler for" t))
+      (.log js/console "No specifier in websocket message"))))
 
 (defn connect-websocket-to-view
-[view]
-(println "Connecting ws to view!")
-(let [handler (websocket-handler {"value" chan "list" chan})]
-  (ws/make-websocket! "ws://localhost:3000/ws" handler)
-  (async/go-loop []
-    (when-let [[t v] (async/<! chan)]
-      (chart-update t view "thedata" v)
-      (recur)))))
+  [view]
+  (let [handler (websocket-handler {"value" chan "list" chan})]
+    (ws/make-websocket! "ws://localhost:3000/ws" handler)
+    (async/go-loop []
+      (when-let [[t v] (async/<! chan)]
+        (chart-update t view "thedata" v)
+        (recur)))))
 
 (defn ^:dev/after-load after-load
   []
